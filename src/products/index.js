@@ -16,10 +16,23 @@ productRouter.post("/", async (req, res, next) => {
 
 productRouter.get("/", async (req, res, next) => {
   try {
-    const { search, minPrice, maxPrice, category } = req.query;
     const query = {};
+    if (req.query.search) {
+      query[Op.or] = [
+        { description: { [Op.iLike]: `%${req.query.search}%` } },
+        { name: { [Op.iLike]: `%${req.query.search}%` } },
+      ];
+    }
+    if (req.query.minPrice && req.query.maxPrice) {
+      query.price = { [Op.between]: [req.query.minPrice, req.query.maxPrice] };
+    }
+    if (req.query.category) {
+      query.category = { [Op.iLike]: `%${req.query.category}%` };
+    }
 
-    const products = await ProductsModal.findAndCountAll(query);
+    const products = await ProductsModal.findAndCountAll({
+      where: { ...query },
+    });
     res.send(products);
   } catch (error) {
     next(error);
