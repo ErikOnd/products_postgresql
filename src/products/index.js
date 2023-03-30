@@ -30,8 +30,15 @@ productRouter.get("/", async (req, res, next) => {
       query.category = { [Op.iLike]: `%${req.query.category}%` };
     }
 
+    const offset = req.query.offset ? parseInt(req.query.offset) : 0;
+    const limit = req.query.limit ? parseInt(req.query.limit) : 10;
+    const order = req.query.order ? req.query.order : "ASC";
+
     const products = await ProductsModal.findAndCountAll({
       where: { ...query },
+      limit: limit,
+      offset: offset,
+      order: [["name", order]],
     });
     res.send(products);
   } catch (error) {
