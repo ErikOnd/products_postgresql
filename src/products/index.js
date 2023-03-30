@@ -1,14 +1,22 @@
 import express from "express";
 import createHttpError from "http-errors";
 import { Op } from "sequelize";
-import ProductsModal from "./modal.js";
+import ProductsModel from "./model.js";
+import ProductCategoryModel from "./product_category_model.js";
 
 const productRouter = express.Router();
 
 productRouter.post("/", async (req, res, next) => {
   try {
-    const { id } = await ProductsModal.create(req.body);
-    res.status(201).send({ id });
+    const { product_id } = await ProductsModel.create(req.body);
+    if (req.body.categories) {
+      await ProductCategoryModel.bulkCreate(
+        req.body.categories.map((category) => {
+          return { product_id: product_id, category_id: category };
+        })
+      );
+    }
+    res.status(201).send({ product_id });
   } catch (error) {
     next(error);
   }
@@ -26,16 +34,13 @@ productRouter.get("/", async (req, res, next) => {
     if (req.query.minPrice && req.query.maxPrice) {
       query.price = { [Op.between]: [req.query.minPrice, req.query.maxPrice] };
     }
-    if (req.query.category) {
-      query.category = { [Op.iLike]: `%${req.query.category}%` };
-    }
 
     const offset = req.query.offset ? parseInt(req.query.offset) : 0;
     const limit = req.query.limit ? parseInt(req.query.limit) : 10;
     const order = req.query.order ? req.query.order : "ASC";
     const page = req.query.page ? parseInt(req.query.page) : 1;
 
-    const products = await ProductsModal.findAndCountAll({
+    const products = await ProductsModel.findAndCountAll({
       where: { ...query },
       limit: limit,
       offset: offset,
@@ -66,7 +71,7 @@ productRouter.get("/", async (req, res, next) => {
 
 productRouter.get("/:productId", async (req, res, next) => {
   try {
-    const product = await ProductsModal.findByPk(req.params.productId, {
+    const product = await ProductsModel.findByPk(req.params.productId, {
       attributes: { exclude: ["createdAt", "updatedAt"] },
     });
     if (product) {
@@ -86,9 +91,9 @@ productRouter.get("/:productId", async (req, res, next) => {
 
 productRouter.put("/:productId", async (req, res, next) => {
   try {
-    const [numberOfUpdatedRows, updatedRecords] = await ProductsModal.update(
+    const [numberOfUpdatedRows, updatedRecords] = await ProductsModel.update(
       req.body,
-      { where: { id: req.params.productId }, returning: true }
+      { where: { product_id: req.params.productId }, returning: true }
     );
     if (numberOfUpdatedRows === 1) {
       res.send(updatedRecords[0]);
@@ -107,8 +112,8 @@ productRouter.put("/:productId", async (req, res, next) => {
 
 productRouter.delete("/:productId", async (req, res, next) => {
   try {
-    const numberOfDeletedRows = await ProductsModal.destroy({
-      where: { id: req.params.productId },
+    const numberOfDeletedRows = await ProductsModel.destroy({
+      where: { product_id: req.params.productId },
     });
     if (numberOfDeletedRows === 1) {
       res.status(204).send();
