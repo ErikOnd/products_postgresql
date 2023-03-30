@@ -33,6 +33,7 @@ productRouter.get("/", async (req, res, next) => {
     const offset = req.query.offset ? parseInt(req.query.offset) : 0;
     const limit = req.query.limit ? parseInt(req.query.limit) : 10;
     const order = req.query.order ? req.query.order : "ASC";
+    const page = req.query.page ? parseInt(req.query.page) : 1;
 
     const products = await ProductsModal.findAndCountAll({
       where: { ...query },
@@ -40,7 +41,24 @@ productRouter.get("/", async (req, res, next) => {
       offset: offset,
       order: [["name", order]],
     });
-    res.send(products);
+    const totalPages = Math.ceil(products.count / limit);
+    const nextPage = page < totalPages ? page + 1 : null;
+    const nextLink = nextPage
+      ? `${process.env.FE_URL}/products?page=${nextPage}&limit=${limit}`
+      : null;
+
+    const prevPage = page > 1 ? page - 1 : null;
+    const prevLink = prevPage
+      ? `${process.env.FE_URL}/products?page=${prevPage}&limit=${limit}`
+      : null;
+
+    res.send({
+      products: products.rows,
+      count: products.count,
+      totalPages: totalPages,
+      nextPage: nextLink,
+      prevPage: prevLink,
+    });
   } catch (error) {
     next(error);
   }
